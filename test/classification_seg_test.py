@@ -1,8 +1,5 @@
-import argparse
 import time
-
 from pycoral.utils.dataset import read_label_file
-
 from segments_runner.segments_runner import SegmentsRunner
 
 
@@ -22,10 +19,6 @@ def main():
 
     # Run inference
     print("----INFERENCE TIME----")
-    print(
-        "Note: The first inference on Edge TPU is slow because it includes",
-        "loading the model into Edge TPU memory.",
-    )
     for _ in range(10):
         start = time.perf_counter()
         runner.invoke_all()
