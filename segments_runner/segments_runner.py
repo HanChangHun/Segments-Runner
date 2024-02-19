@@ -7,7 +7,6 @@ from tflite_runtime.interpreter import Interpreter
 
 import pycoral.adapters.common as pycoral_common
 import pycoral.adapters.classify as classify
-from pycoral.adapters import detect
 from pycoral.adapters.detect import BBox
 from pycoral.utils.edgetpu import make_interpreter
 
