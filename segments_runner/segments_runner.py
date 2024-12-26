@@ -94,7 +94,7 @@ class SegmentsRunner:
                 idx - 1
             ].get_tensor(output_detail["index"])
 
-    def get_classes(self, top_k=1, score_threshold=0.0) -> List[Class]:
+    def get_classes(self, top_k=5, score_threshold=0.0) -> List[Class]:
         return classify.get_classes(
             self.interpreters[-1], top_k, score_threshold
         )
