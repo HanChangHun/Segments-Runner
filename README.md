@@ -1,19 +1,90 @@
+Below is a concise **README** in English, demonstrating how to install and use **SegmentsRunner** for both classification and detection tasks.
+
+---
+
 # SegmentsRunner
 
-This repository defines a module for executing Edge TPU models that are divided into multiple segments.
+**SegmentsRunner** is a Python module that sequentially executes one or more Edge TPU models split into multiple segments. It supports both classification and detection workflows.
 
-## Getting Started
+## Installation
 
-To get started with SegmentsRunner, follow these steps:
-
-1. Clone the Repository
-
-   ```sh
+1. **Clone the Repository**  
+   ```shell
    git clone https://github.com/HanChangHun/SegmentsRunner.git
+   cd SegmentsRunner
    ```
 
-2. Install Packages
-
-   ```sh
-   python3 -m pip install -e .
+2. **Install the Package**  
+   Since the project uses a `pyproject.toml` file, you can install it locally with:
+   ```shell
+   pip install .
    ```
+
+## Usage Examples
+
+### Classification Example
+
+Below is a quick example of running two classification model segments on a single image:
+
+```python
+from pathlib import Path
+from segments_runner import SegmentsRunner
+
+# Paths to two classification model segments and a label file
+model_paths = [
+    Path("model_segment1.tflite"),
+    Path("model_segment2.tflite")
+]
+labels_path = "labels.txt"
+
+# Initialize the runner
+runner = SegmentsRunner(
+    model_paths=model_paths,
+    labels_path=labels_path,
+    input_file="test_image.jpg"
+)
+
+# Invoke all segments
+runner.invoke_all(task="classification")
+
+# Retrieve classification results
+results = runner.get_result(top_n=3)  # Top 3 classes
+print("Classification Results:", results)
+```
+
+### Detection Example
+
+For object detection, simply specify `task="detection"` when invoking and call `get_result(detection=True)`:
+
+```python
+from pathlib import Path
+from segments_runner import SegmentsRunner
+
+# Paths to two detection model segments and a COCO label file
+model_paths = [
+    Path("detection_segment1.tflite"),
+    Path("detection_segment2.tflite")
+]
+labels_path = "coco_labels.txt"
+
+# Initialize the runner
+runner = SegmentsRunner(
+    model_paths=model_paths,
+    labels_path=labels_path,
+    input_file="sample_image.jpg"
+)
+
+# Invoke all segments for detection
+runner.invoke_all(task="detection")
+
+# Retrieve detection results with a threshold
+detection_results = runner.get_result(
+    detection=True,
+    score_threshold=0.5
+)
+
+# Print detected objects
+for obj in detection_results:
+    label_name = runner.labels.get(obj.id, obj.id)
+    print(f"Detected {label_name} with score {obj.score:.2f} at {obj.bbox}")
+```

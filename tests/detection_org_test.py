@@ -1,10 +1,13 @@
+import argparse
 import time
 
 from PIL import Image
 from PIL import ImageDraw
 
+from pycoral.adapters import common
+from pycoral.adapters import detect
 from pycoral.utils.dataset import read_label_file
-from segments_runner.segments_runner import SegmentsRunner
+from pycoral.utils.edgetpu import make_interpreter
 
 
 def draw_objects(draw, objs, labels):
@@ -22,32 +25,36 @@ def draw_objects(draw, objs, labels):
 
 
 def main():
-    segment_paths = [
-        "test_data/model/tf2_ssd_mobilenet_v2_coco17_ptq_segment_0_of_3_edgetpu.tflite",
-        "test_data/model/tf2_ssd_mobilenet_v2_coco17_ptq_segment_1_of_3_edgetpu.tflite",
-        "test_data/model/tf2_ssd_mobilenet_v2_coco17_ptq_segment_2_of_3_edgetpu.tflite",
-    ]
-    output_path = "test_data/det_output_seg.jpg"
+    image_path = "segments_runner/test_data/face.jpg"
+    label_path = "segments_runner/test_data/coco_labels.txt"
+    model_path = (
+        "models/tf2_ssd_mobilenet_v2_coco17_ptq_edgetpu.tflite"
+    )
+    output_path = "segments_runner/test_data/det_output_org.jpg"
 
-    image_path = "test_data/face.jpg"
-    image = Image.open(image_path)
-
-    label_path = "test_data/coco_labels.txt"
     labels = read_label_file(label_path)
+    interpreter = make_interpreter(model_path)
+    interpreter.allocate_tensors()
 
-    runner = SegmentsRunner(segment_paths, device="pci:0")
-    runner.initialize()
-    scale = runner.set_resized_input(image)
+    image = Image.open(image_path)
+    _, scale = common.set_resized_input(
+        interpreter,
+        image.size,
+        lambda size: image.resize(size, Image.LANCZOS),
+    )
     print(f"scale: {scale}")
 
-    # Run inference
     print("----INFERENCE TIME----")
-    for _ in range(10):
+    print(
+        "Note: The first inference is slow because it includes",
+        "loading the model into Edge TPU memory.",
+    )
+    for _ in range(5):
         start = time.perf_counter()
-        runner.invoke_all()
+        interpreter.invoke()
         inference_time = time.perf_counter() - start
-        objs = runner.get_objects(0.4, scale)
-        print("%.2fms" % (inference_time * 1000))
+        objs = detect.get_objects(interpreter, 0.4, scale)
+        print("%.2f ms" % (inference_time * 1000))
 
     print("-------RESULTS--------")
     if not objs:

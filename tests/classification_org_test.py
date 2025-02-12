@@ -1,4 +1,3 @@
-import argparse
 import time
 
 from PIL import Image
@@ -9,22 +8,16 @@ from pycoral.utils.edgetpu import make_interpreter
 
 
 def main():
-    org_model_path = (
-        "test_data/model/mobilenet_v2_1.0_224_inat_bird_quant_edgetpu.tflite"
-    )
-    image_path = "test_data/parrot.jpg"
+    org_model_path = "models/mobilenet_v2_1.0_224_inat_bird_quant_edgetpu.tflite"
+    image_path = "segments_runner/test_data/parrot.jpg"
 
-    labels = read_label_file("test_data/inat_bird_labels.txt")
+    labels = read_label_file("segments_runner/test_data/inat_bird_labels.txt")
 
     interpreter = make_interpreter(org_model_path, device="pci:0")
     interpreter.allocate_tensors()
 
     size = common.input_size(interpreter)
-    image = (
-        Image.open(image_path)
-        .convert("RGB")
-        .resize(size, Image.Resampling.LANCZOS)
-    )
+    image = Image.open(image_path).convert("RGB").resize(size, Image.Resampling.LANCZOS)
     common.set_input(interpreter, image)
 
     # Run inference
