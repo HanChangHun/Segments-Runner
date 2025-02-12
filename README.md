@@ -1,7 +1,3 @@
-Below is a concise **README** in English, demonstrating how to install and use **SegmentsRunner** for both classification and detection tasks.
-
----
-
 # SegmentsRunner
 
 **SegmentsRunner** is a Python module that sequentially executes one or more Edge TPU models split into multiple segments. It supports both classification and detection workflows.
