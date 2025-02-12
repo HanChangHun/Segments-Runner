@@ -8,7 +8,37 @@ Below is a concise **README** in English, demonstrating how to install and use *
 
 ## Installation
 
+### Install Dependency
+
+1. **install tflite-runtime**
+    - Example below (Python 3.9, x86_64 Linux):
+
+        ```sh
+        python3 -m pip install \
+        https://github.com/google-coral/pycoral/releases/download/v2.0.0/\
+        tflite_runtime-2.5.0.post1-cp39-cp39-linux_x86_64.whl
+        ```
+
+2. **install PyCoral**
+
+    - Example below (Python 3.9, x86_64 Linux):
+
+        ```sh
+        python3 -m pip install \
+        https://github.com/google-coral/pycoral/releases/download/v2.0.0/\
+        pycoral-2.0.0-cp39-cp39-linux_x86_64.whl#sha256=77c81c64a99119019c0d65ae9b1af25d2856ab6057dac27d3ea64dac963bef16
+        ```
+
+### Instal Package (Pip)
+
+```sh
+pip install segments-runner
+```
+
+### Install Package (Source)
+
 1. **Clone the Repository**  
+
    ```shell
    git clone https://github.com/HanChangHun/SegmentsRunner.git
    cd SegmentsRunner
@@ -16,6 +46,7 @@ Below is a concise **README** in English, demonstrating how to install and use *
 
 2. **Install the Package**  
    Since the project uses a `pyproject.toml` file, you can install it locally with:
+
    ```shell
    pip install .
    ```
