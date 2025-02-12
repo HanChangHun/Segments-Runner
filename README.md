@@ -47,6 +47,22 @@ pip install segments-runner
    pip install .
    ```
 
+### Install Using `uv`
+
+If you prefer using `uv` for dependency management, you can install the package as follows:
+
+1. **Install Dependencies**
+
+    ```sh
+    uv pip install -r requirements.txt
+    ```
+
+2. **Install SegmentsRunner**
+
+    ```sh
+    uv pip install .
+    ```
+
 ## Usage Examples
 
 ### Classification Example
