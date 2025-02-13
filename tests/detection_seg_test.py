@@ -3,7 +3,7 @@ import time
 from PIL import Image, ImageDraw
 from pycoral.utils.dataset import read_label_file
 
-from segments_runner.segments_runner import SegmentsRunner
+from segments_runner import SegmentsRunner
 
 
 def draw_objects(draw, objs, labels):
