@@ -19,6 +19,12 @@ license = { file = "LICENSE" }
 dependencies = ["numpy==1.26.4"]
 
 
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"segments_runner" = ["test_data/*"]
+
 [tool.setuptools.packages.find]
 exclude = ["test*"]
 
