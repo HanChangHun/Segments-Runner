@@ -33,10 +33,8 @@ class SegmentsRunner:
         레이블 파일 경로(기본값: None). None이면 test_data 내부의 coco_labels.txt 사용
     input_file : Optional[str]
         입력 이미지 파일 경로(기본값: None). None이면 test_data 내부의 parrot.jpg 사용
-    skip_invoke : bool
-        True이면 모델을 호출하지 않고(delegate만 로드) 추후 별도 작업 가능
-    delegator_path : Optional[str]
-        사용자 지정 delegate(.so) 파일 경로. skip_invoke=True일 때 유효
+    delegate_path : Optional[str]
+        사용자 지정 delegate(.so) 파일 경로
     device : Optional[str]
         make_interpreter(device=...)에 전달할 EdgeTPU device 명칭(USB, PCI 등)
     """
@@ -46,15 +44,15 @@ class SegmentsRunner:
         model_paths: List[str],
         labels_path: Optional[str] = None,
         input_file: Optional[str] = None,
-        skip_invoke: bool = False,
-        delegator_path: Optional[str] = None,
+        delegate_path: Optional[str] = None,
         device: Optional[str] = None,
+        separate_cache: bool = False,
     ):
         # 모델 경로 리스트
         self.model_paths = model_paths
-        self.skip_invoke = skip_invoke
-        self.delegator_path = delegator_path
+        self.delegate_path = delegate_path
         self.device = device
+        self.separate_cache = separate_cache
 
         # 현재 파일 경로: segments_runner.py
         # -> parent: segments_runner 폴더
@@ -62,10 +60,14 @@ class SegmentsRunner:
         self._base_dir = Path(__file__).resolve().parent
 
         # delegate 설정
-        if self.skip_invoke:
-            if not self.delegator_path:
-                raise ValueError("delegator_path must be provided when skip_invoke is True")
-            self.delegate = tflite.load_delegate(self.delegator_path)
+        if self.delegate_path:
+            _option = {}
+            if self.device:
+                _option["device"] = self.device
+                self.delegate = tflite.load_delegate(self.delegate_path, _option)
+            else:
+                self.delegate = tflite.load_delegate(self.delegate_path)
+
         else:
             self.delegate = None
 
@@ -112,6 +114,10 @@ class SegmentsRunner:
         # 감지 전처리용 이미지 & scale
         self._prepare_detection_image(self.image, self._dtype)
 
+        # 캐시 저장용 텐서
+        if self.separate_cache:
+            self.cache_tensor = [0] * len(self.interpreters)
+
     # ----------------------------------------------------------------
     # 내부 준비 로직
     # ----------------------------------------------------------------
@@ -120,11 +126,10 @@ class SegmentsRunner:
         model_paths에 대해 make_interpreter를 호출하여 self.interpreters를 구성.
         """
         for model_path in self.model_paths:
-            interpreter = make_interpreter(
-                str(model_path),
-                delegate=self.delegate,
-                device=self.device,
-            )
+            if self.delegate:
+                interpreter = make_interpreter(str(model_path), delegate=self.delegate)
+            else:
+                interpreter = make_interpreter(str(model_path), device=self.device)
             self.interpreters.append(interpreter)
 
     def _allocate_tensors_all(self):
@@ -178,6 +183,14 @@ class SegmentsRunner:
         else:
             self.proc_image = self._prepare_classification_image(self.image, _dtype)
 
+    def cache_segment_idx(self, idx):
+        """
+        첫 번째 실행을 수행. driver 코드에서 첫 번째 invoke는 cache용으로 사용.
+        """
+        if self.cache_tensor[idx] == 0:
+            self._invoke_interpreter(self.interpreters[idx])
+            self.cache_tensor[idx] = 1
+
     # ----------------------------------------------------------------
     # 모델 실행(여러 세그먼트)
     # ----------------------------------------------------------------
@@ -225,6 +238,9 @@ class SegmentsRunner:
         profile : bool
             True면 h2d, exec, d2h 각각의 시간을 ms 단위로 측정하여 리스트로 반환
         """
+        if self.separate_cache:
+            self.cache_segment_idx(idx)
+
         interpreter = self.interpreters[idx]
         h2d_dur = self._set_input(idx, task=task, profile=profile)
         exec_dur = self._invoke_interpreter(interpreter, profile=profile)

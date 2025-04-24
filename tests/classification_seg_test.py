@@ -1,4 +1,5 @@
 import time
+from PIL import Image
 from pycoral.utils.dataset import read_label_file
 from segments_runner import SegmentsRunner
 
@@ -14,7 +15,7 @@ def main():
 
     labels = read_label_file("segments_runner/test_data/inat_bird_labels.txt")
 
-    runner.set_image(image_path)
+    runner.set_image(Image.open(image_path))
 
     # Run inference
     print("----INFERENCE TIME----")
