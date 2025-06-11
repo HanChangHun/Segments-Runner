@@ -6,14 +6,18 @@ from pycoral.adapters import common
 from pycoral.utils.dataset import read_label_file
 from pycoral.utils.edgetpu import make_interpreter
 
+import tflite_runtime.interpreter as tflite
+
 
 def main():
     org_model_path = "models/mobilenet_v2_1.0_224_inat_bird_quant_edgetpu.tflite"
     image_path = "segments_runner/test_data/parrot.jpg"
 
     labels = read_label_file("segments_runner/test_data/inat_bird_labels.txt")
+    delegate_path = "/home/chun/workspaces/tpu/libedgetpus/libedgetpu-separate-cache-inference/out/direct/k8/libedgetpu.so.1.0"
+    delegate = tflite.load_delegate(delegate_path)
 
-    interpreter = make_interpreter(org_model_path, device="pci:0")
+    interpreter = make_interpreter(org_model_path, delegate=delegate)
     interpreter.allocate_tensors()
 
     size = common.input_size(interpreter)

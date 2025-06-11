@@ -74,7 +74,7 @@ class SegmentsRunner:
         # 레이블 파일 설정
         if labels_path is None:
             # test_data 내부 coco_labels.txt를 기본값으로 사용
-            labels_file = self._base_dir / "test_data" / "coco_labels.txt"
+            labels_file = self._base_dir / "test_data" / "imagenet_labels.txt"
             self.labels = read_label_file(str(labels_file))
         else:
             self.labels = read_label_file(labels_path)

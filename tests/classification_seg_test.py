@@ -11,7 +11,9 @@ def main():
         "models/mobilenet_v2_1.0_224_inat_bird_quant_segment_1_of_3_edgetpu.tflite",
         "models/mobilenet_v2_1.0_224_inat_bird_quant_segment_2_of_3_edgetpu.tflite",
     ]
-    runner = SegmentsRunner(segment_paths, device="pci:0")
+    delegate_path = "/home/chun/workspaces/tpu/libedgetpus/libedgetpu-separate-cache-inference/out/direct/k8/libedgetpu.so.1.0"
+
+    runner = SegmentsRunner(segment_paths, delegate_path=delegate_path)
 
     labels = read_label_file("segments_runner/test_data/inat_bird_labels.txt")
 

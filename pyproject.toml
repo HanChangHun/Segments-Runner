@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "segments_runner"
-version = "1.0.0"
+version = "1.0.1"
 description = "Run multiple segments of EdgeTPU models in sequence"
 authors = [{ name = "Changhun Han", email = "ehwjs1914@naver.com" }]
 readme = "README.md"
