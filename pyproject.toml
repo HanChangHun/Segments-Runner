@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "segments_runner"
-version = "1.0.1"
+version = "1.0.3"
 description = "Run multiple segments of EdgeTPU models in sequence"
 authors = [{ name = "Changhun Han", email = "ehwjs1914@naver.com" }]
 readme = "README.md"
@@ -16,13 +16,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 license = { file = "LICENSE" }
-dependencies = [
-    "build>=1.1.1",
-    "numpy>=1.16.0,<2.0.0",
-    "packaging>=24.0",
-    "pip>=24.0",
-    "twine>=4.0.2",
-]
+dependencies = ["numpy>=1.16.0,<2.0.0"]
 
 
 [tool.setuptools]
