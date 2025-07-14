@@ -16,7 +16,8 @@ def main():
 
     labels = read_label_file("segments_runner/test_data/inat_bird_labels.txt")
 
-    runner.set_image(Image.open(image_path))
+    image = Image.open(image_path)
+    runner.set_image(image)
 
     # Run inference
     print("----INFERENCE TIME----")
@@ -24,8 +25,9 @@ def main():
         start = time.perf_counter()
         runner.invoke_all()
         inference_time = time.perf_counter() - start
-        classes_dict = runner.get_result(top_n=5, detection=False)
-        print("%.1fms" % (inference_time * 1000))
+
+    classes_dict = runner.get_result(top_n=5, detection=False)
+    print("%.1fms" % (inference_time * 1000))
 
     print("-------RESULTS--------")
     for label, score in classes_dict.items():
