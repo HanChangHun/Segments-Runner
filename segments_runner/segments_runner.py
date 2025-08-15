@@ -46,13 +46,11 @@ class SegmentsRunner:
         input_file: Optional[str] = None,
         delegate_path: Optional[str] = None,
         device: Optional[str] = None,
-        separate_cache: bool = False,
     ):
         # 모델 경로 리스트
         self.model_paths = model_paths
         self.delegate_path = delegate_path
         self.device = device
-        self.separate_cache = separate_cache
 
         # 현재 파일 경로: segments_runner.py
         # -> parent: segments_runner 폴더
@@ -114,10 +112,6 @@ class SegmentsRunner:
         # 감지 전처리용 이미지 & scale
         self._prepare_detection_image(self.image, self._dtype)
 
-        # 캐시 저장용 텐서
-        if self.separate_cache:
-            self.cache_tensor = [0] * len(self.interpreters)
-
     # ----------------------------------------------------------------
     # 내부 준비 로직
     # ----------------------------------------------------------------
@@ -144,7 +138,9 @@ class SegmentsRunner:
         """
         try:
             # interpreter의 (배치, 높이, 너비, 채널) 형태
-            _, input_h, input_w, _ = self.interpreters[0].get_input_details()[0]["shape"]
+            _, input_h, input_w, _ = self.interpreters[0].get_input_details()[0][
+                "shape"
+            ]
             proc_image = image.convert("RGB").resize((input_w, input_h), Image.LANCZOS)
             return np.asarray(proc_image, dtype=dtype)[np.newaxis, :]
         except Exception as e:
@@ -183,14 +179,6 @@ class SegmentsRunner:
         else:
             self.proc_image = self._prepare_classification_image(self.image, _dtype)
 
-    def cache_segment_idx(self, idx):
-        """
-        첫 번째 실행을 수행. driver 코드에서 첫 번째 invoke는 cache용으로 사용.
-        """
-        if self.cache_tensor[idx] == 0:
-            self._invoke_interpreter(self.interpreters[idx])
-            self.cache_tensor[idx] = 1
-
     # ----------------------------------------------------------------
     # 모델 실행(여러 세그먼트)
     # ----------------------------------------------------------------
@@ -213,7 +201,9 @@ class SegmentsRunner:
         0 : 아직 마지막 Interpreter가 아님
         1 : 마지막 Interpreter 실행 후 다시 0으로 초기화
         """
-        assert self.cur_idx < self.num_segments, "Current index exceeds number of segments."
+        assert (
+            self.cur_idx < self.num_segments
+        ), "Current index exceeds number of segments."
         self.invoke_idx(self.cur_idx, task=task, profile=profile)
 
         if self.cur_idx < self.num_segments - 1:
@@ -238,9 +228,6 @@ class SegmentsRunner:
         profile : bool
             True면 h2d, exec, d2h 각각의 시간을 ms 단위로 측정하여 리스트로 반환
         """
-        if self.separate_cache:
-            self.cache_segment_idx(idx)
-
         interpreter = self.interpreters[idx]
         h2d_dur = self._set_input(idx, task=task, profile=profile)
         exec_dur = self._invoke_interpreter(interpreter, profile=profile)
@@ -281,7 +268,9 @@ class SegmentsRunner:
         for input_detail in input_details:
             in_name = input_detail["name"]
             if in_name in self.intermediate:
-                interpreter.set_tensor(input_detail["index"], self.intermediate[in_name])
+                interpreter.set_tensor(
+                    input_detail["index"], self.intermediate[in_name]
+                )
 
     def _invoke_interpreter(self, interpreter, profile=False):
         """해당 Interpreter를 실제로 invoke한다."""
@@ -307,7 +296,9 @@ class SegmentsRunner:
     # ----------------------------------------------------------------
     # 결과 추출
     # ----------------------------------------------------------------
-    def get_result(self, top_n=1, detection=False, image_scale=(1.0, 1.0), score_threshold=0.4):
+    def get_result(
+        self, top_n=1, detection=False, image_scale=(1.0, 1.0), score_threshold=0.4
+    ):
         """
         마지막 Interpreter의 결과를 가져와 분류 결과 또는 감지 결과로 해석한다.
 
@@ -341,7 +332,9 @@ class SegmentsRunner:
         """
         마지막 Interpreter의 출력 데이터를 분류로 해석한다.
         """
-        output_data = self.interpreters[-1].tensor(self.output_details["index"])().flatten()
+        output_data = (
+            self.interpreters[-1].tensor(self.output_details["index"])().flatten()
+        )
 
         if np.issubdtype(self.output_details["dtype"], np.integer):
             # int 양자화 모델
@@ -350,7 +343,9 @@ class SegmentsRunner:
             # float 모델
             scores = output_data.copy()
 
-        classes = pycoral_classify.get_classes_from_scores(scores, top_n, score_threshold=0.0)
+        classes = pycoral_classify.get_classes_from_scores(
+            scores, top_n, score_threshold=0.0
+        )
         return {self.labels.get(c.id, c.id): float(c.score) for c in classes}
 
     def _get_detection_result(self, score_threshold=0.4):
@@ -389,7 +384,9 @@ class SegmentsRunner:
             return Object(
                 id=int(class_ids[i]),
                 score=float(scores[i]),
-                bbox=BBox(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax).scale(sx, sy).map(int),
+                bbox=BBox(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)
+                .scale(sx, sy)
+                .map(int),
             )
 
         return [make_object(i) for i in range(count) if scores[i] >= score_threshold]
