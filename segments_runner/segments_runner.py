@@ -46,11 +46,13 @@ class SegmentsRunner:
         input_file: Optional[str] = None,
         delegate_path: Optional[str] = None,
         device: Optional[str] = None,
+        separate_cache: bool = False,
     ):
         # 모델 경로 리스트
         self.model_paths = model_paths
         self.delegate_path = delegate_path
         self.device = device
+        self.separate_cache = separate_cache
 
         # 현재 파일 경로: segments_runner.py
         # -> parent: segments_runner 폴더
