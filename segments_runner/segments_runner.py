@@ -22,8 +22,8 @@ Object = collections.namedtuple("Object", ["id", "score", "bbox"])
 
 class SegmentsRunner:
     """
-    여러 TFLite 모델(세그먼트)을 순차적으로 실행할 수 있는 클래스입니다.
-    분류(classification)와 감지(detection) 모델 모두 지원하도록 기능을 확장한 예시입니다.
+    여러 TFLite 모델(세그먼트)을 순차적으로 실행할 수 있는 클래스
+    분류(classification)와 감지(detection) 모델 지원
 
     Parameters
     ----------
@@ -51,11 +51,7 @@ class SegmentsRunner:
         self.model_paths = model_paths
         self.delegate_path = delegate_path
         self.device = device
-
-        # 현재 파일 경로: segments_runner.py
-        # -> parent: segments_runner 폴더
-        # -> parent.parent: 프로젝트 루트(여기에 test_data 폴더 존재)
-        self._base_dir = Path(__file__).resolve().parent
+        self.num_segments: int = len(model_paths)
 
         # delegate 설정
         if self.delegate_path:
@@ -68,6 +64,11 @@ class SegmentsRunner:
 
         else:
             self.delegate = None
+
+        # 현재 파일 경로: segments_runner.py
+        # -> parent: segments_runner 폴더
+        # -> parent.parent: 프로젝트 루트(여기에 test_data 폴더 존재)
+        self._base_dir = Path(__file__).resolve().parent
 
         # 레이블 파일 설정
         if labels_path is None:
@@ -87,9 +88,8 @@ class SegmentsRunner:
 
         # Interpreter 생성
         self.interpreters: List[tflite.Interpreter] = []
-        self._make_interpreters()
-        self.num_segments: int = len(self.interpreters)
-        self._allocate_tensors_all()
+        self.make_interpreters()
+        self.allocate_tensors_all()
 
         # 중간 텐서 저장용 dict
         self.intermediate = dict()
@@ -107,15 +107,12 @@ class SegmentsRunner:
         self.scale, self.zero_point = self.output_details["quantization"]
 
         # 분류 전처리용 이미지
-        self.proc_image = self._prepare_classification_image(self.image, self._dtype)
+        self.proc_image = self.prepare_classification_image(self.image, self._dtype)
 
         # 감지 전처리용 이미지 & scale
-        self._prepare_detection_image(self.image, self._dtype)
+        self.prepare_detection_image(self.image, self._dtype)
 
-    # ----------------------------------------------------------------
-    # 내부 준비 로직
-    # ----------------------------------------------------------------
-    def _make_interpreters(self):
+    def make_interpreters(self):
         """
         model_paths에 대해 make_interpreter를 호출하여 self.interpreters를 구성.
         """
@@ -126,12 +123,28 @@ class SegmentsRunner:
                 interpreter = make_interpreter(str(model_path), device=self.device)
             self.interpreters.append(interpreter)
 
-    def _allocate_tensors_all(self):
+    def allocate_tensors_all(self):
         """모든 Interpreter에 대해 allocate_tensors를 실행한다."""
         for interpreter in self.interpreters:
             interpreter.allocate_tensors()
 
-    def _prepare_classification_image(self, image: Image.Image, dtype):
+    def set_image(self, new_img: Image.Image, detection=False):
+        """
+        외부에서 이미지를 새로 지정할 때 호출.
+        detection=True이면 내부적으로 감지용 이미지(det_image)로 재준비.
+        """
+        self.image = new_img
+
+        if not self.interpreters:
+            return
+
+        _dtype = self.input_details[0]["dtype"]
+        if detection:
+            self.prepare_detection_image(self.image)
+        else:
+            self.proc_image = self.prepare_classification_image(self.image, _dtype)
+
+    def prepare_classification_image(self, image: Image.Image, dtype):
         """
         분류(Classification)용 이미지를 모델 입력 크기로 리사이즈하고,
         RGB 변환 후 numpy 배열로 만든다.
@@ -148,7 +161,7 @@ class SegmentsRunner:
             shape = self.interpreters[0].get_input_details()[0]["shape"]
             return np.zeros(shape, dtype=dtype)
 
-    def _prepare_detection_image(self, image: Image.Image, dtype):
+    def prepare_detection_image(self, image: Image.Image):
         """
         감지(detection)용 이미지를 Interpreter의 입력 크기에 맞추어 리사이즈하고,
         내부적으로 scale 정보를 저장한다.
@@ -160,28 +173,6 @@ class SegmentsRunner:
         )
         self.det_scale = scale
 
-    # ----------------------------------------------------------------
-    # 외부 이미지 설정
-    # ----------------------------------------------------------------
-    def set_image(self, new_img: Image.Image, detection=False):
-        """
-        외부에서 이미지를 새로 지정할 때 호출.
-        detection=True이면 내부적으로 감지용 이미지(det_image)로 재준비.
-        """
-        self.image = new_img
-
-        if not self.interpreters:
-            return
-
-        _dtype = self.input_details[0]["dtype"]
-        if detection:
-            self._prepare_detection_image(self.image, _dtype)
-        else:
-            self.proc_image = self._prepare_classification_image(self.image, _dtype)
-
-    # ----------------------------------------------------------------
-    # 모델 실행(여러 세그먼트)
-    # ----------------------------------------------------------------
     def invoke_all(self, task=None, profile=False):
         """
         모든 Interpreter(세그먼트)에 대해 순차적으로 invoke를 수행.
@@ -229,38 +220,35 @@ class SegmentsRunner:
             True면 h2d, exec, d2h 각각의 시간을 ms 단위로 측정하여 리스트로 반환
         """
         interpreter = self.interpreters[idx]
-        h2d_dur = self._set_input(idx, task=task, profile=profile)
-        exec_dur = self._invoke_interpreter(interpreter, profile=profile)
-        d2h_dur = self._store_output_tensors(interpreter, profile=profile)
+        h2d_dur = self.set_input(idx, task=task, profile=profile)
+        exec_dur = self.invoke_interpreter(interpreter, profile=profile)
+        d2h_dur = self.store_output_tensors(interpreter, profile=profile)
 
         if profile:
             return [h2d_dur, exec_dur, d2h_dur]
 
-    # ----------------------------------------------------------------
-    # 입력/출력 설정 및 저장
-    # ----------------------------------------------------------------
-    def _set_input(self, idx, task=None, profile=False):
+    def set_input(self, idx, task=None, profile=False):
         """idx에 해당하는 Interpreter에 입력을 설정한다."""
         start_time = time.perf_counter() if profile else None
 
         if idx == 0:
-            self._set_initial_input(task=task)
+            self.set_initial_input(task=task)
         else:
-            self._set_sequential_input(self.interpreters[idx])
+            self.set_intermediate_input(self.interpreters[idx])
 
         if profile:
             return (time.perf_counter() - start_time) * 1000
 
-    def _set_initial_input(self, task=None):
+    def set_initial_input(self, task=None):
         """
         첫 번째 Interpreter에 대해 입력을 설정한다.
         task='detection'이면 감지용 이미지를, 아니면 분류용 이미지를 사용한다.
         """
         if task != "detection" and self.proc_image is not None:
             self.interpreters[0].set_tensor(self.input_tensor_index, self.proc_image)
-        # detection의 경우 set_resized_input에서 이미 내부 텐서를 맞췄으므로 별도 동작 불필요
+        # detection의 경우 set_resized_input에서 이미 수행
 
-    def _set_sequential_input(self, interpreter):
+    def set_intermediate_input(self, interpreter):
         """
         두 번째 이후 Interpreter에 대해서는 이전 세그먼트의 출력을 입력으로 설정한다.
         """
@@ -272,14 +260,14 @@ class SegmentsRunner:
                     input_detail["index"], self.intermediate[in_name]
                 )
 
-    def _invoke_interpreter(self, interpreter, profile=False):
+    def invoke_interpreter(self, interpreter, profile=False):
         """해당 Interpreter를 실제로 invoke한다."""
         start_time = time.perf_counter() if profile else None
         interpreter.invoke()
         if profile:
             return (time.perf_counter() - start_time) * 1000
 
-    def _store_output_tensors(self, interpreter, profile=False):
+    def store_output_tensors(self, interpreter, profile=False):
         """
         실행이 끝난 Interpreter의 출력 텐서를 intermediate 딕셔너리에 저장한다.
         """
@@ -293,12 +281,7 @@ class SegmentsRunner:
         if profile:
             return (time.perf_counter() - start_time) * 1000
 
-    # ----------------------------------------------------------------
-    # 결과 추출
-    # ----------------------------------------------------------------
-    def get_result(
-        self, top_n=1, detection=False, image_scale=(1.0, 1.0), score_threshold=0.4
-    ):
+    def get_result(self, top_n=1, detection=False, score_threshold=0.4):
         """
         마지막 Interpreter의 결과를 가져와 분류 결과 또는 감지 결과로 해석한다.
 
@@ -308,8 +291,6 @@ class SegmentsRunner:
             분류 결과에서 상위 N개만 반환
         detection : bool
             True면 감지 결과 반환, False면 분류 결과 반환
-        image_scale : tuple(float, float)
-            필요 시 사용할 추가 스케일
         score_threshold : float
             감지 모델의 점수 임계값
 
@@ -320,15 +301,15 @@ class SegmentsRunner:
             - 감지 모델: Object(namedtuple)의 리스트
         """
         if detection:
-            result = self._get_detection_result(score_threshold)
+            result = self.get_detection_result(score_threshold)
         else:
-            result = self._get_classification_result(top_n)
+            result = self.get_classification_result(top_n)
 
         # 다음 호출 전에 이전 출력을 비워 새 실행에 대비
         self.intermediate = {}
         return result
 
-    def _get_classification_result(self, top_n=1):
+    def get_classification_result(self, top_n=1):
         """
         마지막 Interpreter의 출력 데이터를 분류로 해석한다.
         """
@@ -348,7 +329,7 @@ class SegmentsRunner:
         )
         return {self.labels.get(c.id, c.id): float(c.score) for c in classes}
 
-    def _get_detection_result(self, score_threshold=0.4):
+    def get_detection_result(self, score_threshold=0.4):
         """
         마지막 Interpreter의 출력 데이터를 감지로 해석한다.
         """
