@@ -174,28 +174,20 @@ class SegmentsRunner:
         self.det_scale = scale
 
     def invoke_all(self, task=None, profile=False):
-        """
-        모든 Interpreter(세그먼트)에 대해 순차적으로 invoke를 수행.
-        task='detection'이면 감지 모델, 아니면 분류 모델로 가정.
-        """
         self.cur_idx = 0
         for _ in range(self.num_segments):
             self.invoke_and_next(task=task, profile=profile)
 
     def invoke_and_next(self, task=None, profile=False):
-        """
-        현재 인덱스(cur_idx)에 해당하는 Interpreter를 한 번 실행 후,
-        다음 인덱스로 넘어감.
-
-        Returns
-        -------
-        0 : 아직 마지막 Interpreter가 아님
-        1 : 마지막 Interpreter 실행 후 다시 0으로 초기화
-        """
         assert (
             self.cur_idx < self.num_segments
         ), "Current index exceeds number of segments."
-        self.invoke_idx(self.cur_idx, task=task, profile=profile)
+
+        if not profile:
+            self.invoke_idx(self.cur_idx, task=task)
+        else:
+            h2d, exec, d2h = self.invoke_idx(self.cur_idx, task=task, profile=profile)
+            print(f"[SegmentsRunner] h2d: {h2d}, exec: {exec}, d2h: {d2h}")
 
         if self.cur_idx < self.num_segments - 1:
             self.cur_idx += 1
@@ -207,28 +199,15 @@ class SegmentsRunner:
             raise RuntimeError("Index out of range after invoke.")
 
     def invoke_idx(self, idx, task=None, profile=False):
-        """
-        주어진 인덱스의 Interpreter를 실행한다.
-
-        Parameters
-        ----------
-        idx : int
-            self.interpreters 내 인덱스
-        task : Optional[str]
-            "detection"이면 감지용 입력 사용, 아니면 분류용 입력
-        profile : bool
-            True면 h2d, exec, d2h 각각의 시간을 ms 단위로 측정하여 리스트로 반환
-        """
         interpreter = self.interpreters[idx]
         h2d_dur = self.set_input(idx, task=task, profile=profile)
         exec_dur = self.invoke_interpreter(interpreter, profile=profile)
         d2h_dur = self.store_output_tensors(interpreter, profile=profile)
 
         if profile:
-            return [h2d_dur, exec_dur, d2h_dur]
+            return h2d_dur, exec_dur, d2h_dur
 
     def set_input(self, idx, task=None, profile=False):
-        """idx에 해당하는 Interpreter에 입력을 설정한다."""
         start_time = time.perf_counter() if profile else None
 
         if idx == 0:
@@ -240,18 +219,11 @@ class SegmentsRunner:
             return (time.perf_counter() - start_time) * 1000
 
     def set_initial_input(self, task=None):
-        """
-        첫 번째 Interpreter에 대해 입력을 설정한다.
-        task='detection'이면 감지용 이미지를, 아니면 분류용 이미지를 사용한다.
-        """
         if task != "detection" and self.proc_image is not None:
             self.interpreters[0].set_tensor(self.input_tensor_index, self.proc_image)
         # detection의 경우 set_resized_input에서 이미 수행
 
     def set_intermediate_input(self, interpreter):
-        """
-        두 번째 이후 Interpreter에 대해서는 이전 세그먼트의 출력을 입력으로 설정한다.
-        """
         input_details = interpreter.get_input_details()
         for input_detail in input_details:
             in_name = input_detail["name"]
@@ -261,16 +233,12 @@ class SegmentsRunner:
                 )
 
     def invoke_interpreter(self, interpreter, profile=False):
-        """해당 Interpreter를 실제로 invoke한다."""
         start_time = time.perf_counter() if profile else None
         interpreter.invoke()
         if profile:
             return (time.perf_counter() - start_time) * 1000
 
     def store_output_tensors(self, interpreter, profile=False):
-        """
-        실행이 끝난 Interpreter의 출력 텐서를 intermediate 딕셔너리에 저장한다.
-        """
         start_time = time.perf_counter() if profile else None
 
         for output_detail in interpreter.get_output_details():
@@ -282,24 +250,6 @@ class SegmentsRunner:
             return (time.perf_counter() - start_time) * 1000
 
     def get_result(self, top_n=1, detection=False, score_threshold=0.4):
-        """
-        마지막 Interpreter의 결과를 가져와 분류 결과 또는 감지 결과로 해석한다.
-
-        Parameters
-        ----------
-        top_n : int
-            분류 결과에서 상위 N개만 반환
-        detection : bool
-            True면 감지 결과 반환, False면 분류 결과 반환
-        score_threshold : float
-            감지 모델의 점수 임계값
-
-        Returns
-        -------
-        dict or list
-            - 분류 모델: {레이블: 점수}
-            - 감지 모델: Object(namedtuple)의 리스트
-        """
         if detection:
             result = self.get_detection_result(score_threshold)
         else:
@@ -310,9 +260,6 @@ class SegmentsRunner:
         return result
 
     def get_classification_result(self, top_n=1):
-        """
-        마지막 Interpreter의 출력 데이터를 분류로 해석한다.
-        """
         output_data = (
             self.interpreters[-1].tensor(self.output_details["index"])().flatten()
         )
@@ -330,9 +277,6 @@ class SegmentsRunner:
         return {self.labels.get(c.id, c.id): float(c.score) for c in classes}
 
     def get_detection_result(self, score_threshold=0.4):
-        """
-        마지막 Interpreter의 출력 데이터를 감지로 해석한다.
-        """
         interpreter = self.interpreters[-1]
         signature_list = interpreter._get_full_signature_list()
 
