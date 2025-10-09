@@ -6,11 +6,14 @@ from segments_runner import SegmentsRunner
 
 def main():
     image_path = "segments_runner/test_data/parrot.jpg"
+    # With 3 Segments
     segment_paths = [
         "models/mobilenet_v2_segment_0_of_3_edgetpu.tflite",
         "models/mobilenet_v2_segment_1_of_3_edgetpu.tflite",
         "models/mobilenet_v2_segment_2_of_3_edgetpu.tflite",
     ]
+
+    # With 1 Segment
     # segment_paths = [
     #     "models/mobilenet_v2_edgetpu.tflite",
     # ]
