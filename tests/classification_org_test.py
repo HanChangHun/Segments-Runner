@@ -11,11 +11,16 @@ import tflite_runtime.interpreter as tflite
 
 def main():
     org_model_path = "models/mobilenet_v2_1.0_224_inat_bird_quant_edgetpu.tflite"
+    org_model_path = "/home/chun/workspaces/tpu/temp/co_compile_test/efficientnet_m_8_edgetpu.tflite"
+    # org_model_path = "/home/chun/workspaces/tpu/temp/co_compile_test/efficientnet_m_edgetpu.tflite"
     image_path = "segments_runner/test_data/parrot.jpg"
 
     labels = read_label_file("segments_runner/test_data/inat_bird_labels.txt")
-    delegate_path = "/home/chun/workspaces/tpu/libedgetpus/libedgetpu-separate-cache-inference/out/direct/k8/libedgetpu.so.1.0"
-    delegate = tflite.load_delegate(delegate_path)
+    # delegate_path = (
+    #     "/home/chun/workspaces/tpu/libedgetpus/libedgetpu-separate-cache-inference/out/direct/k8/libedgetpu.so.1.0"
+    # )
+    # delegate = tflite.load_delegate(delegate_path)
+    delegate = None
 
     interpreter = make_interpreter(org_model_path, delegate=delegate)
     interpreter.allocate_tensors()

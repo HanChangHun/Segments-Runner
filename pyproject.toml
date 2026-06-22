@@ -45,6 +45,6 @@ exclude = ["test*"]
 [tool.uv]
 extra-index-url = [
     "https://google-coral.github.io/py-repo/",
-    "http://192.168.0.5:3141/chun/stable/+simple/",
+    "http://163.152.162.112:10004/chun/stable/+simple/",
 ]
-allow-insecure-host = ["192.168.0.5"]
+allow-insecure-host = ["163.152.162.112"]
