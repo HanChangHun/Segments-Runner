@@ -42,6 +42,14 @@ exclude = ["test*"]
 "Repository" = "https://github.com/HanChangHun/SegmentsRunner"
 "Issues" = "https://github.com/HanChangHun/SegmentsRunner/issues"
 
+[dependency-groups]
+dev = ["pytest>=7.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+python_files = ["test_*.py"]
+
 [tool.uv]
 extra-index-url = [
     "https://google-coral.github.io/py-repo/",
